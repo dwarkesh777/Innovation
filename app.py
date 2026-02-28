@@ -96,9 +96,7 @@ import time
 from sqlalchemy.pool import NullPool
 from flask import Flask, render_template, request, session, redirect, url_for, Response, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-print("DEBUG: Flask-SQLAlchemy imported")
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
-print("DEBUG: Flask-Login imported")
 from flask_socketio import SocketIO, join_room, emit
 
 # Security and authentication
@@ -123,7 +121,6 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file for configuration
 load_dotenv()
-print("DEBUG: .env loaded")
 
 # ============================================================================
 # AI API CONFIGURATION
@@ -153,7 +150,6 @@ from whitenoise import WhiteNoise
 
 
 app = Flask(__name__)
-print("DEBUG: Flask app created")
 
 # Template filter to convert UTC to IST
 @app.template_filter('to_ist')
@@ -321,7 +317,6 @@ AI_MODEL = os.getenv("AI_MODEL", "models/gemini-2.5-flash")
 
 # Initialize SQLAlchemy for database operations
 db = SQLAlchemy(app)
-print("DEBUG: SQLAlchemy(app) initialized")
 
 # Email functionality removed
 
@@ -5245,7 +5240,7 @@ def check_task_reminders():
         time.sleep(60)
 
 # IMPORTANT: Order matters. Define logic, THEN run schema check and updates.
-init_db_schema()
+# init_db_schema() - Moved to main block for Vercel compatibility
 
 @app.route('/fix-db-schema')
 def fix_db_schema():
@@ -6374,15 +6369,23 @@ def serve_sw():
 # ============================================================================
 
 if __name__ == '__main__':
+    # Initialize database and directories ONLY when run directly (not on Vercel)
+    # Vercel imports the app object and doesn't run this block
+    if not os.environ.get('VERCEL'):
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        try:
+            print("Initializing database schema...")
+            init_db_schema()
+            print("Database schema initialized.")
+        except Exception as e:
+            print(f"Error during database initialization: {e}")
 
-    # Start Background Scheduler ONLY in development mode
-    # In production (gunicorn), this block doesn't run, avoiding eventlet conflicts
-    # For production task reminders, use a separate cron job or background worker service
-    if not SCHEDULER_STARTED:
-        print("Starting background task reminder scheduler (development mode only)...")
-        scheduler_thread = threading.Thread(target=check_task_reminders, daemon=True)
-        scheduler_thread.start()
-        SCHEDULER_STARTED = True
+        # Start Background Scheduler ONLY in development mode
+        if not SCHEDULER_STARTED:
+            print("Starting background task reminder scheduler...")
+            scheduler_thread = threading.Thread(target=check_task_reminders, daemon=True)
+            scheduler_thread.start()
+            SCHEDULER_STARTED = True
 
     # Use socketio.run instead of app.run
     port = int(os.environ.get("PORT", 5000))
