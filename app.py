@@ -87,15 +87,18 @@ LAST UPDATED: February 2026
 # IMPORTS AND INITIALIZATION
 # ============================================================================
 
-# Eventlet must be patched first for async Socket.IO support
-import eventlet
-eventlet.monkey_patch()
+# Eventlet is deprecated and has compatibility issues with Python 3.13+
+# Use threading and time instead
+import threading
+import time
 
 # Database and ORM imports
 from sqlalchemy.pool import NullPool
 from flask import Flask, render_template, request, session, redirect, url_for, Response, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+print("DEBUG: Flask-SQLAlchemy imported")
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
+print("DEBUG: Flask-Login imported")
 from flask_socketio import SocketIO, join_room, emit
 
 # Security and authentication
@@ -120,6 +123,7 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file for configuration
 load_dotenv()
+print("DEBUG: .env loaded")
 
 # ============================================================================
 # AI API CONFIGURATION
@@ -149,6 +153,7 @@ from whitenoise import WhiteNoise
 
 
 app = Flask(__name__)
+print("DEBUG: Flask app created")
 
 # Template filter to convert UTC to IST
 @app.template_filter('to_ist')
@@ -316,6 +321,7 @@ AI_MODEL = os.getenv("AI_MODEL", "models/gemini-2.5-flash")
 
 # Initialize SQLAlchemy for database operations
 db = SQLAlchemy(app)
+print("DEBUG: SQLAlchemy(app) initialized")
 
 # Email functionality removed
 
@@ -5236,7 +5242,7 @@ def check_task_reminders():
             print(f"Scheduler Error: {e}")
             
         # Sleep for 60 seconds
-        eventlet.sleep(60)
+        time.sleep(60)
 
 # IMPORTANT: Order matters. Define logic, THEN run schema check and updates.
 init_db_schema()
@@ -6374,7 +6380,8 @@ if __name__ == '__main__':
     # For production task reminders, use a separate cron job or background worker service
     if not SCHEDULER_STARTED:
         print("Starting background task reminder scheduler (development mode only)...")
-        eventlet.spawn(check_task_reminders)
+        scheduler_thread = threading.Thread(target=check_task_reminders, daemon=True)
+        scheduler_thread.start()
         SCHEDULER_STARTED = True
 
     # Use socketio.run instead of app.run
